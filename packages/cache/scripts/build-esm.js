@@ -33,8 +33,8 @@ const INDEX_MJS = path.join(ESM_DIR, "index.mjs");
 const ESM_PKG = path.join(ESM_DIR, "package.json");
 
 function run(cmd) {
-    process.stdout.write(`[build-esm] $ ${cmd}\n`);
-    execSync(cmd, { stdio: "inherit" });
+  process.stdout.write(`[build-esm] $ ${cmd}\n`);
+  execSync(cmd, { stdio: "inherit" });
 }
 
 const originalRaw = fs.readFileSync(PKG_PATH, "utf8");
@@ -42,34 +42,31 @@ const originalJson = JSON.parse(originalRaw);
 const wasAlreadyModule = originalJson.type === "module";
 
 if (!wasAlreadyModule) {
-    const swapped = { ...originalJson, type: "module" };
-    fs.writeFileSync(PKG_PATH, JSON.stringify(swapped, null, 2) + "\n");
-    process.stdout.write(
-        `[build-esm] Temporarily set ${PKG_PATH} "type": "module" for ESM compile.\n`,
-    );
+  const swapped = { ...originalJson, type: "module" };
+  fs.writeFileSync(PKG_PATH, JSON.stringify(swapped, null, 2) + "\n");
+  process.stdout.write(
+    `[build-esm] Temporarily set ${PKG_PATH} "type": "module" for ESM compile.\n`,
+  );
 }
 
 try {
-    run(`tsc -p ${TSCONFIG}`);
+  run(`tsc -p ${TSCONFIG}`);
 
-    if (fs.existsSync(INDEX_JS)) {
-        fs.renameSync(INDEX_JS, INDEX_MJS);
-        process.stdout.write(`[build-esm] Renamed ${INDEX_JS} -> ${INDEX_MJS}\n`);
-    } else {
-        process.stdout.write(
-            `[build-esm] WARN: ${INDEX_JS} not found; skipping rename.\n`,
-        );
-    }
-
-    fs.mkdirSync(ESM_DIR, { recursive: true });
-    fs.writeFileSync(
-        ESM_PKG,
-        JSON.stringify({ type: "module" }, null, 2) + "\n",
+  if (fs.existsSync(INDEX_JS)) {
+    fs.renameSync(INDEX_JS, INDEX_MJS);
+    process.stdout.write(`[build-esm] Renamed ${INDEX_JS} -> ${INDEX_MJS}\n`);
+  } else {
+    process.stdout.write(
+      `[build-esm] WARN: ${INDEX_JS} not found; skipping rename.\n`,
     );
-    process.stdout.write(`[build-esm] Wrote ${ESM_PKG}\n`);
+  }
+
+  fs.mkdirSync(ESM_DIR, { recursive: true });
+  fs.writeFileSync(ESM_PKG, JSON.stringify({ type: "module" }, null, 2) + "\n");
+  process.stdout.write(`[build-esm] Wrote ${ESM_PKG}\n`);
 } finally {
-    if (!wasAlreadyModule) {
-        fs.writeFileSync(PKG_PATH, originalRaw);
-        process.stdout.write(`[build-esm] Restored ${PKG_PATH}.\n`);
-    }
+  if (!wasAlreadyModule) {
+    fs.writeFileSync(PKG_PATH, originalRaw);
+    process.stdout.write(`[build-esm] Restored ${PKG_PATH}.\n`);
+  }
 }
