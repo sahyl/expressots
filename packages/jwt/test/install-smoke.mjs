@@ -47,16 +47,26 @@ async function run(command, args, cwd = root, extraEnv = {}) {
   });
   await fs.appendFile(log, output);
   assert.equal(status, 0, output.slice(-6000));
+  return output;
 }
 
 for (const directory of ["shared", "core", "adapter-express", "cli", "jwt"]) {
   const cwd = path.join(root, "packages", directory);
   await run("pnpm", ["pack", "--pack-destination", temporary], cwd);
-  const manifest = JSON.parse(
+  const sourceManifest = JSON.parse(
     await fs.readFile(path.join(cwd, "package.json"), "utf8"),
   );
-  const filename = `${manifest.name.replace(/^@/, "").replace("/", "-")}-${manifest.version}.tgz`;
+  const filename = `${sourceManifest.name.replace(/^@/, "").replace("/", "-")}-${sourceManifest.version}.tgz`;
   const tarball = await fs.readFile(path.join(temporary, filename));
+  // Serve exactly the manifest npm receives after packing, including rewritten
+  // workspace dependencies AND peer dependencies.
+  const manifest = JSON.parse(
+    await run("tar", [
+      "-xOf",
+      path.join(temporary, filename),
+      "package/package.json",
+    ]),
+  );
   records.set(manifest.name, { manifest, filename, tarball });
 }
 
@@ -91,15 +101,6 @@ const registry = createServer((request, response) => {
   const record = records.get(pathname.slice(1));
   if (record) {
     const manifest = { ...record.manifest };
-    if (manifest.dependencies)
-      manifest.dependencies = Object.fromEntries(
-        Object.entries(manifest.dependencies).map(([name, version]) => [
-          name,
-          version.startsWith("workspace:")
-            ? records.get(name).manifest.version
-            : version,
-        ]),
-      );
     manifest.dist = {
       tarball: `${registryBase}/tarballs/${record.filename}`,
       shasum: createHash("sha1").update(record.tarball).digest("hex"),
